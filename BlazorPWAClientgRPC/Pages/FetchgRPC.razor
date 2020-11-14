@@ -1,0 +1,57 @@
+﻿@page "/fetchgRPC"
+@using Grpc.Net.Client
+@using Grpc.Net.Client.Web
+
+<h3>Fetch gRPC</h3>
+
+@Message
+
+<br />
+<h2>From gRPC</h2>
+<ul>
+    @foreach (var item in Elements)
+    {
+        <li>@item.Description</li>
+    }
+</ul>
+
+<br />
+<h2>From API Rest Json</h2>
+<ul>
+    @foreach (var item in ElementsJson)
+    {
+        <li>@item.Description</li>
+    }
+</ul>
+
+
+
+@code {
+    public string Message { get; set; }
+    public List<Element> Elements { get; set; } = new List<Element>();
+    public List<Element> ElementsJson { get; set; } = new List<Element>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var totalElements = 500;
+        using var channel = GrpcChannel.ForAddress("https://localhost:5001",
+            //using var channel = GrpcChannel.ForAddress("https://grpcservicedemo.azurewebsites.net/",
+            new GrpcChannelOptions { HttpClient = new HttpClient(new GrpcWebHandler(GrpcWebMode.GrpcWeb, new HttpClientHandler())) });
+        var client = new Greeter.GreeterClient(channel);
+        var reply = await client.SayHelloAsync(
+            new HelloRequest { Name = "Greeter Client Blazor" });
+        Message = reply.Message;
+
+        var replyElements = await client.GetListAsync(
+            new TotalElementsRequest { Elements = totalElements });
+        Elements = replyElements.Items.ToList();
+
+        var jsonClient = new HttpClient { BaseAddress = new Uri("https://localhost:5001") };
+        var res = await jsonClient.GetFromJsonAsync<ElementsReply>($"api/values/GetList?total={totalElements}");
+        ElementsJson = res.Items.ToList();
+
+        //ShouldRender();
+
+        //return base.OnInitializedAsync();
+    }
+}
